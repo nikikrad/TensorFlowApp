@@ -10,4 +10,24 @@
         android:name="com.example.tensorflowapp.presentation.main.MainFragment"
         android:label="fragment_main"
         tools:layout="@layout/fragment_main" />
+    <fragment
+        android:id="@+id/classificationFragment"
+        android:name="com.example.tensorflowapp.presentation.main.classification.ClassificationFragment"
+        android:label="ClassificationFragment"
+        tools:layout="@layout/fragment_classification"/>
+    <fragment
+        android:id="@+id/objectDetectionFragment"
+        android:name="com.example.tensorflowapp.presentation.main.object.ObjectDetectionFragment"
+        android:label="ObjectDetectionFragment"
+        tools:layout="@layout/fragment_object_detection"/>
+    <fragment
+        android:id="@+id/faceDetectionFragment"
+        android:name="com.example.tensorflowapp.presentation.main.face.FaceDetectionFragment"
+        android:label="FaceDetectionFragment"
+        tools:layout="@layout/fragment_face_detection"/>
+    <fragment
+        android:id="@+id/flowerClassificationFragment"
+        android:name="com.example.tensorflowapp.presentation.main.flower.FlowerClassificationFragment"
+        android:label="fragment_flower_classification"
+        tools:layout="@layout/fragment_flower_classification" />
 </navigation>

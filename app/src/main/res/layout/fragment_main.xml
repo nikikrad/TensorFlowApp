@@ -6,43 +6,44 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     tools:context=".presentation.main.MainFragment">
 
-    <ImageView
-        android:id="@+id/iv_Image"
-        android:layout_width="match_parent"
-        android:layout_height="500dp"
-        android:scaleType="centerCrop"
-        app:layout_constraintTop_toTopOf="parent"
-        />
-
     <Button
-        android:id="@+id/btn_GalleryImage"
+        android:id="@+id/btn_Classification"
         android:layout_width="150dp"
         android:layout_height="50dp"
-        android:text="Take Image"
+        android:text="Classification"
         android:textAllCaps="false"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        android:layout_margin="40dp"/>
+        app:layout_constraintTop_toTopOf="parent" />
 
     <Button
-        android:id="@+id/btn_CameraImage"
+        android:id="@+id/btn_Detection"
         android:layout_width="150dp"
         android:layout_height="50dp"
-        android:text="Open Camera"
+        android:text="Detection"
         android:textAllCaps="false"
-        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:layout_margin="40dp"/>
-
-    <TextView
-        android:id="@+id/tv_Output"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        app:layout_constraintTop_toBottomOf="@+id/iv_Image"
         app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btn_Classification" />
+
+    <Button
+        android:id="@+id/btn_Face"
+        android:layout_width="150dp"
+        android:layout_height="50dp"
+        android:text="Face"
+        android:textAllCaps="false"
         app:layout_constraintEnd_toEndOf="parent"
-        />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btn_Detection" />
 
-
+    <Button
+        android:id="@+id/btn_Flower"
+        android:layout_width="150dp"
+        android:layout_height="50dp"
+        android:text="Flower"
+        android:textAllCaps="false"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btn_Face" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
