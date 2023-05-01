@@ -11,14 +11,21 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import com.example.tensorflowapp.MainActivity
+import com.example.tensorflowapp.R
+import com.example.tensorflowapp.data.database.TensorDatabase
+import com.example.tensorflowapp.data.database.TensorEntity
 import com.example.tensorflowapp.databinding.FragmentObjectDetectionBinding
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.label.ImageLabeler
@@ -27,6 +34,10 @@ import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
 import com.google.mlkit.vision.objects.ObjectDetection
 import com.google.mlkit.vision.objects.ObjectDetector
 import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -85,6 +96,9 @@ class ObjectDetectionFragment : Fragment() {
             onStartCamera()
 
         }
+        binding.btnImages.setOnClickListener {
+            findNavController().navigate(R.id.imagesFragment)
+        }
 
     }
 
@@ -95,6 +109,7 @@ class ObjectDetectionFragment : Fragment() {
                 if (!detectorObjects.isEmpty()) {
                     val builder = StringBuilder()
                     val boxes = mutableListOf<BoxWithText>()
+                    val text = ""
                     detectorObjects.forEach {
                         if (!it.labels.isEmpty()) {
                             val label = it.labels[0].text
@@ -110,6 +125,13 @@ class ObjectDetectionFragment : Fragment() {
                     binding.tvOutput.text = builder.toString()
                     if (binding.checkBox.isChecked) {
                         binding.ivImage.setImageBitmap(drawDetectionResult(bitmap, boxes))
+                        lifecycleScope.launch(Dispatchers.IO){
+                            addImageToDatabase(drawDetectionResult(bitmap, boxes)!!, builder.toString())
+                        }
+                    }else{
+                        lifecycleScope.launch(Dispatchers.IO){
+                            addImageToDatabase(bitmap, builder.toString())
+                        }
                     }
                 } else {
                     binding.tvOutput.text = "Could not detect"
@@ -118,6 +140,13 @@ class ObjectDetectionFragment : Fragment() {
                 it.printStackTrace()
             }
 
+    }
+
+    private suspend fun addImageToDatabase(bitmap: Bitmap, text: String){
+        val stream = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)
+        val dao = TensorDatabase.getDatabase(requireContext()).TensorDao()
+        dao.addImage(TensorEntity(text = text, byteImage = stream.toByteArray(), type = 2))
     }
 
     private fun onPickImage() {

@@ -30,4 +30,9 @@
         android:name="com.example.tensorflowapp.presentation.main.flower.FlowerClassificationFragment"
         android:label="fragment_flower_classification"
         tools:layout="@layout/fragment_flower_classification" />
+    <fragment
+        android:id="@+id/imagesFragment"
+        android:name="com.example.tensorflowapp.presentation.main.object.images.ImagesFragment"
+        android:label="fragment_images"
+        tools:layout="@layout/fragment_images" />
 </navigation>
