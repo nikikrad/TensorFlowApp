@@ -97,7 +97,9 @@ class ObjectDetectionFragment : Fragment() {
 
         }
         binding.btnImages.setOnClickListener {
-            findNavController().navigate(R.id.imagesFragment)
+            val bundle = Bundle()
+            bundle.putInt("TYPE", 2)
+            findNavController().navigate(R.id.imagesFragment, bundle)
         }
 
     }

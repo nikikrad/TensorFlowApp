@@ -16,4 +16,7 @@ interface TensorDao {
 
     @Query("SELECT * FROM tensor_table")
     suspend fun readAllData(): List<TensorEntity>
+
+    @Query("SELECT * FROM tensor_table WHERE type = :type")
+    suspend fun getAllObjectImages(type: Int): List<TensorEntity>
 }

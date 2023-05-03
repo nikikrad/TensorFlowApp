@@ -3,10 +3,10 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".presentation.main.object.images.ImagesFragment">
+    tools:context=".presentation.main.images.ImagesFragment">
 
-    <ImageView
-        android:id="@+id/iv_Image"
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rv_Images"
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>
 
