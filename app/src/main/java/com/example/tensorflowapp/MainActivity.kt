@@ -30,14 +30,7 @@ class MainActivity : AppCompatActivity() {
         val navHostFragment =
             supportFragmentManager.findFragmentById(R.id.fragment_container_view) as NavHostFragment
         navController = navHostFragment.findNavController()
-        val bottomNavigationView = binding.bnvNavigation
-        bottomNavigationView
-            .menu.forEach {
-                bottomNavigationView.findViewById<View>(it.itemId).setOnLongClickListener {
-                    true
-                }
-            }
-        bottomNavigationView.setupWithNavController(navController)
+
     }
 
 }

@@ -26,7 +26,11 @@ import com.example.tensorflowapp.MainActivity
 import com.example.tensorflowapp.R
 import com.example.tensorflowapp.data.database.TensorDatabase
 import com.example.tensorflowapp.data.database.TensorEntity
+import com.example.tensorflowapp.data.response.ImageResponse
 import com.example.tensorflowapp.databinding.FragmentObjectDetectionBinding
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.ktx.database
+import com.google.firebase.ktx.Firebase
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.label.ImageLabeler
 import com.google.mlkit.vision.label.ImageLabeling
@@ -127,11 +131,14 @@ class ObjectDetectionFragment : Fragment() {
                     binding.tvOutput.text = builder.toString()
                     if (binding.checkBox.isChecked) {
                         binding.ivImage.setImageBitmap(drawDetectionResult(bitmap, boxes))
-                        lifecycleScope.launch(Dispatchers.IO){
-                            addImageToDatabase(drawDetectionResult(bitmap, boxes)!!, builder.toString())
+                        lifecycleScope.launch(Dispatchers.IO) {
+                            addImageToDatabase(
+                                drawDetectionResult(bitmap, boxes)!!,
+                                builder.toString()
+                            )
                         }
-                    }else{
-                        lifecycleScope.launch(Dispatchers.IO){
+                    } else {
+                        lifecycleScope.launch(Dispatchers.IO) {
                             addImageToDatabase(bitmap, builder.toString())
                         }
                     }
@@ -144,7 +151,42 @@ class ObjectDetectionFragment : Fragment() {
 
     }
 
-    private suspend fun addImageToDatabase(bitmap: Bitmap, text: String){
+    private suspend fun addImageToRealtimeDatabase(bitmap: Bitmap, text: String) {
+        val stream = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)
+        var auth = FirebaseAuth.getInstance()
+        var database = Firebase.database.reference
+        lifecycleScope.launch(Dispatchers.IO) {
+            database.child(auth.currentUser?.email.toString().substringBefore("@")).get()
+                .addOnSuccessListener {
+
+                    if (it.children.toList() !== null) {
+                        database.child(auth.currentUser?.email.toString().substringBefore("@"))
+                            .child("2")
+                            .child("0")
+                            .setValue(
+                                ImageResponse(
+                                    text = text,
+                                    byteImage = bitmap.toString(),
+                                    type = 2
+                                )
+                        )
+                    }else{
+                        database.child(auth.currentUser?.email.toString().substringBefore("@"))
+                            .child("${it.children.toList().last().value.toString().toInt() + 1}")
+                            .setValue(
+                                ImageResponse(
+                                    text = text,
+                                    byteImage = bitmap.toString(),
+                                    type = 2
+                                )
+                            )
+                    }
+                }
+        }
+    }
+
+    private suspend fun addImageToDatabase(bitmap: Bitmap, text: String) {
         val stream = ByteArrayOutputStream()
         bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)
         val dao = TensorDatabase.getDatabase(requireContext()).TensorDao()
@@ -157,6 +199,7 @@ class ObjectDetectionFragment : Fragment() {
 
         startActivityForResult(intent, REQUEST_PICK_IMAGE)
     }
+
 
     private fun onStartCamera() {
         photoFile = createPhotoFile()
