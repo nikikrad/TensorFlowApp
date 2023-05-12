@@ -3,6 +3,8 @@ package com.example.tensorflowapp.presentation.main.`object`
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.ContentProvider
+import android.content.ContentResolver
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.*
@@ -11,11 +13,12 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.MimeTypeMap
 import android.widget.Toast
+import androidx.annotation.NonNull
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -28,9 +31,14 @@ import com.example.tensorflowapp.data.database.TensorDatabase
 import com.example.tensorflowapp.data.database.TensorEntity
 import com.example.tensorflowapp.data.response.ImageResponse
 import com.example.tensorflowapp.databinding.FragmentObjectDetectionBinding
+import com.google.android.gms.tasks.OnSuccessListener
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ktx.database
 import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageReference
+import com.google.firebase.storage.UploadTask
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.label.ImageLabeler
 import com.google.mlkit.vision.label.ImageLabeling
@@ -39,7 +47,6 @@ import com.google.mlkit.vision.objects.ObjectDetection
 import com.google.mlkit.vision.objects.ObjectDetector
 import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -53,6 +60,10 @@ class ObjectDetectionFragment : Fragment() {
     private lateinit var objectDetector: ObjectDetector
     private lateinit var photoFile: File
     private lateinit var imageLabeler: ImageLabeler
+    private val root = Firebase.database.reference
+    private val reference = FirebaseStorage.getInstance().reference.child("Images")
+    private var imageUri: Uri? = null
+    private var auth = FirebaseAuth.getInstance()
 
     private val REQUEST_PICK_IMAGE = 1000
     private val REQUEST_CAPTURE_IMAGE = 1001
@@ -154,7 +165,6 @@ class ObjectDetectionFragment : Fragment() {
     private suspend fun addImageToRealtimeDatabase(bitmap: Bitmap, text: String) {
         val stream = ByteArrayOutputStream()
         bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)
-        var auth = FirebaseAuth.getInstance()
         var database = Firebase.database.reference
         lifecycleScope.launch(Dispatchers.IO) {
             database.child(auth.currentUser?.email.toString().substringBefore("@")).get()
@@ -170,8 +180,8 @@ class ObjectDetectionFragment : Fragment() {
                                     byteImage = bitmap.toString(),
                                     type = 2
                                 )
-                        )
-                    }else{
+                            )
+                    } else {
                         database.child(auth.currentUser?.email.toString().substringBefore("@"))
                             .child("${it.children.toList().last().value.toString().toInt() + 1}")
                             .setValue(
@@ -205,7 +215,7 @@ class ObjectDetectionFragment : Fragment() {
         photoFile = createPhotoFile()
         val fileUri =
             context?.let { FileProvider.getUriForFile(it, "com.iago.fileprovider", photoFile) }
-
+        imageUri = fileUri
         val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
         intent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri)
 
@@ -250,11 +260,13 @@ class ObjectDetectionFragment : Fragment() {
         if (resultCode == Activity.RESULT_OK) {
             if (requestCode == REQUEST_PICK_IMAGE) {
                 val uri = data?.data
+                imageUri = uri
                 val bitmap = loadFromUri(uri!!)
                 binding.ivImage.setImageBitmap(bitmap)
                 if (bitmap != null) {
                     runDetection(bitmap)
                 }
+                uploadToFirebase(uri)
             } else if (requestCode == REQUEST_CAPTURE_IMAGE) {
                 val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
                 binding.ivImage.setImageBitmap(bitmap)
@@ -304,5 +316,50 @@ class ObjectDetectionFragment : Fragment() {
             )
         }
         return outputBitmap
+    }
+
+    private fun uploadToFirebase(uri: Uri) {
+        val fileRef: StorageReference =
+            reference.child(System.currentTimeMillis().toString())
+        try{
+            fileRef.putFile(uri)
+                .addOnSuccessListener {
+
+                    fileRef.downloadUrl
+                        .addOnSuccessListener {
+
+                            val model = imageUri
+                            val modelId: String? = root.push().key
+                            if (modelId != null) {
+                                root.child(auth.currentUser?.email.toString().substringBefore("@"))
+                                    .child("images")
+                                    .child(modelId)
+                                    .setValue(model.toString())
+                            }
+                            binding.progressBar.visibility = View.INVISIBLE
+                            Toast.makeText(
+                                requireContext(),
+                                "Uploaded Successfully",
+                                Toast.LENGTH_SHORT
+                            ).show()
+
+                        }
+
+                }.addOnProgressListener {
+                    binding.progressBar.setVisibility(View.VISIBLE)
+                }.addOnFailureListener {
+                    binding.progressBar.setVisibility(View.INVISIBLE)
+                    Toast.makeText(requireContext(), "Uploading Failed !!", Toast.LENGTH_SHORT).show()
+                }
+        }catch (e: Exception){
+            e.printStackTrace()
+        }
+
+    }
+
+    private fun getFileExtension(mUri: Uri): String? {
+        val cr: ContentResolver = (activity as MainActivity).contentResolver
+        val mime = MimeTypeMap.getSingleton()
+        return mime.getExtensionFromMimeType(cr.getType(mUri))
     }
 }

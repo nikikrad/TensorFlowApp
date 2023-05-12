@@ -18,6 +18,7 @@ import com.example.tensorflowapp.presentation.main.images.adapter.ImagesAdapter
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.ktx.database
 import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.FirebaseStorage
 import com.google.mlkit.vision.label.ImageLabeler
 import com.google.mlkit.vision.objects.ObjectDetector
 import kotlinx.coroutines.Dispatchers
@@ -27,6 +28,8 @@ import java.io.File
 class ImagesFragment : Fragment() {
 
     private lateinit var binding: FragmentImagesBinding
+    private val reference = FirebaseStorage.getInstance().reference.child("Images")
+    private val root = Firebase.database.reference
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -38,6 +41,9 @@ class ImagesFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+
+
         val type = arguments?.getInt("TYPE")!!
         lifecycleScope.launch(Dispatchers.Main) {
             val adapter = ImagesAdapter(getImage(type))
