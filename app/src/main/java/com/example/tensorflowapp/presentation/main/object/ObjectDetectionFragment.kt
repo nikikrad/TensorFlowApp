@@ -94,6 +94,11 @@ class ObjectDetectionFragment : Fragment() {
 
 
         binding.btnGalleryImage.setOnClickListener {
+            binding.apply {
+                ivImage.visibility = View.VISIBLE
+                tvOutput.visibility = View.VISIBLE
+                rvImages.visibility = View.INVISIBLE
+            }
             onPickImage()
         }
         binding.btnCameraImage.setOnClickListener {
@@ -106,6 +111,11 @@ class ObjectDetectionFragment : Fragment() {
                     PackageManager.PERMISSION_DENIED
                 )
             }
+            binding.apply {
+                ivImage.visibility = View.VISIBLE
+                tvOutput.visibility = View.VISIBLE
+                rvImages.visibility = View.INVISIBLE
+            }
             onStartCamera()
 
         }
@@ -116,6 +126,18 @@ class ObjectDetectionFragment : Fragment() {
         }
 
         binding.btnGroupImages.setOnClickListener {
+            binding.apply {
+                ivImage.visibility = View.INVISIBLE
+                tvOutput.visibility = View.INVISIBLE
+                rvImages.visibility = View.VISIBLE
+                rvImages.layoutManager =
+                    LinearLayoutManager(
+                        activity?.applicationContext,
+                        LinearLayoutManager.VERTICAL,
+                        false
+                    )
+                rvImages.adapter = adapter
+            }
             onPickGroupImages()
         }
 
@@ -123,6 +145,7 @@ class ObjectDetectionFragment : Fragment() {
 
 
     private fun runDetection(bitmap: Bitmap?) {
+        var kostil = 0
         val inputImage = InputImage.fromBitmap(bitmap!!, 0)
         objectDetector.process(inputImage)
             .addOnSuccessListener { detectorObjects ->
@@ -143,6 +166,8 @@ class ObjectDetectionFragment : Fragment() {
                         }
                     }
                     binding.tvOutput.text = builder.toString()
+
+
                     description = builder.toString()
                     if (binding.checkBox.isChecked) {
                         binding.ivImage.setImageBitmap(drawDetectionResult(bitmap, boxes))
@@ -163,7 +188,7 @@ class ObjectDetectionFragment : Fragment() {
             }.addOnFailureListener {
                 it.printStackTrace()
             }
-
+        kostil = 0
     }
 
 //    private suspend fun addImageToRealtimeDatabase(bitmap: Bitmap, text: String) {
@@ -280,12 +305,19 @@ class ObjectDetectionFragment : Fragment() {
                     val bitmap = BitmapFactory.decodeStream(inputStream)
                     selectedImages.add(bitmap)
                 }
+//                selectedImages.forEach {
+//                    bitmapList.add(ImageWithText(it, ""))
+//                }
+//                adapter.notifyDataSetChanged()
                 runGroupDetection(selectedImages)
             } else {
                 val uri = data.data
                 val inputStream = (activity as MainActivity).contentResolver.openInputStream(uri!!)
                 val bitmap = BitmapFactory.decodeStream(inputStream)
                 selectedImages.add(bitmap)
+                selectedImages.forEach {
+                    bitmapList.add(ImageWithText(it, ""))
+                }
             }
 
         } else {
@@ -310,6 +342,7 @@ class ObjectDetectionFragment : Fragment() {
     }
 
     private fun runGroupDetection(bitmap: MutableList<Bitmap>) {
+        var kostil = 0
         bitmap.forEach { mBitmap ->
             val inputImage = InputImage.fromBitmap(mBitmap!!, 0)
             objectDetector.process(inputImage)
@@ -327,49 +360,46 @@ class ObjectDetectionFragment : Fragment() {
                                 boxes.add(BoxWithText(label, it.boundingBox))
                             } else {
                                 binding.tvOutput.text = "Unknown"
-                                bitmapList.add(
-                                    ImageWithText(
-                                        image = mBitmap,
-                                        text = builder.toString()
-                                    )
-                                )
-                                adapter.notifyDataSetChanged()
+//                                bitmapList.add(
+//                                    ImageWithText(
+//                                        image = mBitmap,
+//                                        text = builder.toString()
+//                                    )
+//                                )
+//                                adapter.notifyDataSetChanged()
                             }
                         }
                         binding.tvOutput.text = builder.toString()
+                        bitmapList.add(ImageWithText(selectedImages[kostil], builder.toString()))
+                        adapter.notifyDataSetChanged()
+                        kostil++
                         description = builder.toString()
                         if (binding.checkBox.isChecked) {
-                            bitmapList.add(
-                                ImageWithText(
-                                    image = drawDetectionResult(mBitmap, boxes)!!,
-                                    text = builder.toString()
-                                )
-                            )
-                            adapter.notifyDataSetChanged()
+//                            bitmapList.clear()
+//                            bitmapList.add(
+//                                ImageWithText(
+//                                    image = drawDetectionResult(mBitmap, boxes)!!,
+//                                    text = builder.toString()
+//                                )
+//                            )
+//                            adapter.notifyDataSetChanged()
                         }
                     } else {
-                        bitmapList.add(
-                            ImageWithText(
-                                image = mBitmap,
-                                text = "Could not detect"
-                            )
-                        )
-                        adapter.notifyDataSetChanged()
+//                        bitmapList.add(
+//                            ImageWithText(
+//                                image = mBitmap,
+//                                text = "Could not detect"
+//                            )
+//                        )
+//
                     }
+                    adapter.notifyDataSetChanged()
                 }.addOnFailureListener {
                     it.printStackTrace()
                 }
         }
-        binding.rvImages.visibility = View.VISIBLE
-        binding.ivImage.visibility = View.INVISIBLE
-        binding.tvOutput.visibility = View.INVISIBLE
-        binding.rvImages.layoutManager =
-            LinearLayoutManager(
-                activity?.applicationContext,
-                LinearLayoutManager.VERTICAL,
-                false
-            )
-        binding.rvImages.adapter = adapter
+
+        kostil = 0
     }
 
     private fun drawDetectionResult(
