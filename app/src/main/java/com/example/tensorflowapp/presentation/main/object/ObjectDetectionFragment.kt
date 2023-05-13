@@ -3,7 +3,6 @@ package com.example.tensorflowapp.presentation.main.`object`
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.content.ContentProvider
 import android.content.ContentResolver
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -18,7 +17,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.MimeTypeMap
 import android.widget.Toast
-import androidx.annotation.NonNull
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -31,14 +29,12 @@ import com.example.tensorflowapp.data.database.TensorDatabase
 import com.example.tensorflowapp.data.database.TensorEntity
 import com.example.tensorflowapp.data.response.ImageResponse
 import com.example.tensorflowapp.databinding.FragmentObjectDetectionBinding
-import com.google.android.gms.tasks.OnSuccessListener
+import com.example.tensorflowapp.presentation.main.`object`.model.ModelFirebase
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ktx.database
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageReference
-import com.google.firebase.storage.UploadTask
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.label.ImageLabeler
 import com.google.mlkit.vision.label.ImageLabeling
@@ -64,6 +60,7 @@ class ObjectDetectionFragment : Fragment() {
     private val reference = FirebaseStorage.getInstance().reference.child("Images")
     private var imageUri: Uri? = null
     private var auth = FirebaseAuth.getInstance()
+    private var description: String = ""
 
     private val REQUEST_PICK_IMAGE = 1000
     private val REQUEST_CAPTURE_IMAGE = 1001
@@ -140,6 +137,7 @@ class ObjectDetectionFragment : Fragment() {
                         }
                     }
                     binding.tvOutput.text = builder.toString()
+                    description = builder.toString()
                     if (binding.checkBox.isChecked) {
                         binding.ivImage.setImageBitmap(drawDetectionResult(bitmap, boxes))
                         lifecycleScope.launch(Dispatchers.IO) {
@@ -321,12 +319,13 @@ class ObjectDetectionFragment : Fragment() {
     private fun uploadToFirebase(uri: Uri) {
         val fileRef: StorageReference =
             reference.child(System.currentTimeMillis().toString())
-        try{
+        try {
             fileRef.putFile(uri)
                 .addOnSuccessListener {
 
                     fileRef.downloadUrl
-                        .addOnSuccessListener {
+                        .addOnSuccessListener { url ->
+
 
                             val model = imageUri
                             val modelId: String? = root.push().key
@@ -334,7 +333,13 @@ class ObjectDetectionFragment : Fragment() {
                                 root.child(auth.currentUser?.email.toString().substringBefore("@"))
                                     .child("images")
                                     .child(modelId)
-                                    .setValue(model.toString())
+                                    .setValue(
+                                        ModelFirebase(
+                                            url = url.toString(),
+                                            text = description,
+                                            type = "2"
+                                        )
+                                    )
                             }
                             binding.progressBar.visibility = View.INVISIBLE
                             Toast.makeText(
@@ -349,9 +354,10 @@ class ObjectDetectionFragment : Fragment() {
                     binding.progressBar.setVisibility(View.VISIBLE)
                 }.addOnFailureListener {
                     binding.progressBar.setVisibility(View.INVISIBLE)
-                    Toast.makeText(requireContext(), "Uploading Failed !!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "Uploading Failed !!", Toast.LENGTH_SHORT)
+                        .show()
                 }
-        }catch (e: Exception){
+        } catch (e: Exception) {
             e.printStackTrace()
         }
 

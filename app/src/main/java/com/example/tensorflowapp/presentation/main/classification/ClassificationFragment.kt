@@ -17,13 +17,17 @@ import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.navigation.fragment.findNavController
 import com.example.tensorflowapp.MainActivity
 import com.example.tensorflowapp.R
 import com.example.tensorflowapp.databinding.FragmentClassificationBinding
 import com.example.tensorflowapp.databinding.FragmentMainBinding
+import com.example.tensorflowapp.presentation.main.`object`.model.ModelFirebase
+import com.google.firebase.storage.StorageReference
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.label.ImageLabeler
 import com.google.mlkit.vision.label.ImageLabeling
@@ -68,6 +72,11 @@ class ClassificationFragment : Fragment() {
             }
             onStartCamera()
 
+        }
+        binding.btnImages.setOnClickListener {
+            val bundle = Bundle()
+            bundle.putInt("TYPE", 1)
+            findNavController().navigate(R.id.imagesFragment, bundle)
         }
         imageLabeler = ImageLabeling.getClient(
             ImageLabelerOptions.Builder()
@@ -150,18 +159,67 @@ class ClassificationFragment : Fragment() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (resultCode == Activity.RESULT_OK) {
+            val uri = data?.data
             if (requestCode == REQUEST_PICK_IMAGE) {
-                val uri = data?.data
+                uploadToFirebase(uri!!)
                 val bitmap = loadFromUri(uri!!)
                 binding.ivImage.setImageBitmap(bitmap)
                 if (bitmap != null) {
                     runClassification(bitmap)
                 }
             } else if (requestCode == REQUEST_CAPTURE_IMAGE) {
+                uploadToFirebase(uri!!)
                 val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
                 binding.ivImage.setImageBitmap(bitmap)
                 runClassification(bitmap)
             }
+        }
+
+    }
+
+    private fun uploadToFirebase(uri: Uri) {
+        val fileRef: StorageReference =
+            reference.child(System.currentTimeMillis().toString())
+        try {
+            fileRef.putFile(uri)
+                .addOnSuccessListener {
+
+                    fileRef.downloadUrl
+                        .addOnSuccessListener { url ->
+
+
+                            val model = imageUri
+                            val modelId: String? = root.push().key
+                            if (modelId != null) {
+                                root.child(auth.currentUser?.email.toString().substringBefore("@"))
+                                    .child("images")
+                                    .child(modelId)
+                                    .setValue(
+                                        ModelFirebase(
+                                            url = url.toString(),
+                                            text = description,
+                                            type = "2"
+                                        )
+                                    )
+                            }
+                            binding.progressBar.visibility = View.INVISIBLE
+                            Toast.makeText(
+                                requireContext(),
+                                "Uploaded Successfully",
+                                Toast.LENGTH_SHORT
+                            ).show()
+
+                        }
+
+                }.addOnProgressListener {
+                    binding.progressBar.setVisibility(View.VISIBLE)
+                }.addOnFailureListener {
+                    binding.progressBar.setVisibility(View.INVISIBLE)
+                    Toast.makeText(requireContext(), "Uploading Failed !!", Toast.LENGTH_SHORT)
+                        .show()
+                }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
 
     }

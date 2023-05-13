@@ -14,14 +14,23 @@ import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
 import com.example.tensorflowapp.MainActivity
+import com.example.tensorflowapp.R
 import com.example.tensorflowapp.databinding.FragmentFaceDetectionBinding
 import com.example.tensorflowapp.databinding.FragmentObjectDetectionBinding
 import com.example.tensorflowapp.presentation.main.`object`.BoxWithText
+import com.example.tensorflowapp.presentation.main.`object`.model.ModelFirebase
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.ktx.database
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageReference
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.Face
 import com.google.mlkit.vision.face.FaceDetection
@@ -41,6 +50,11 @@ class FaceDetectionFragment : Fragment() {
     private lateinit var faceDetector: FaceDetector
     private lateinit var photoFile: File
     private lateinit var imageLabeler: ImageLabeler
+    private val root = Firebase.database.reference
+    private val reference = FirebaseStorage.getInstance().reference.child("Images")
+    private var imageUri: Uri? = null
+    private var auth = FirebaseAuth.getInstance()
+    private var description: String = ""
 
     private val REQUEST_PICK_IMAGE = 1000
     private val REQUEST_CAPTURE_IMAGE = 1001
@@ -86,6 +100,11 @@ class FaceDetectionFragment : Fragment() {
             }
             onStartCamera()
 
+        }
+        binding.btnImages.setOnClickListener {
+            val bundle = Bundle()
+            bundle.putInt("TYPE", 3)
+            findNavController().navigate(R.id.imagesFragment, bundle)
         }
 
     }
@@ -164,14 +183,16 @@ class FaceDetectionFragment : Fragment() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (resultCode == Activity.RESULT_OK) {
+            val uri = data?.data
             if (requestCode == REQUEST_PICK_IMAGE) {
-                val uri = data?.data
+                uploadToFirebase(uri!!)
                 val bitmap = loadFromUri(uri!!)
                 binding.ivImage.setImageBitmap(bitmap)
                 if (bitmap != null) {
                     runDetection(bitmap)
                 }
             } else if (requestCode == REQUEST_CAPTURE_IMAGE) {
+                uploadToFirebase(uri!!)
                 val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
                 binding.ivImage.setImageBitmap(bitmap)
                 runDetection(bitmap)
@@ -216,6 +237,53 @@ class FaceDetectionFragment : Fragment() {
             if (margin < 0f) margin = 0f
         }
         return outputBitmap
+    }
+
+    private fun uploadToFirebase(uri: Uri) {
+        val fileRef: StorageReference =
+            reference.child(System.currentTimeMillis().toString())
+        try {
+            fileRef.putFile(uri)
+                .addOnSuccessListener {
+
+                    fileRef.downloadUrl
+                        .addOnSuccessListener { url ->
+
+
+                            val model = imageUri
+                            val modelId: String? = root.push().key
+                            if (modelId != null) {
+                                root.child(auth.currentUser?.email.toString().substringBefore("@"))
+                                    .child("images")
+                                    .child(modelId)
+                                    .setValue(
+                                        ModelFirebase(
+                                            url = url.toString(),
+                                            text = description,
+                                            type = "2"
+                                        )
+                                    )
+                            }
+                            binding.progressBar.visibility = View.INVISIBLE
+                            Toast.makeText(
+                                requireContext(),
+                                "Uploaded Successfully",
+                                Toast.LENGTH_SHORT
+                            ).show()
+
+                        }
+
+                }.addOnProgressListener {
+                    binding.progressBar.setVisibility(View.VISIBLE)
+                }.addOnFailureListener {
+                    binding.progressBar.setVisibility(View.INVISIBLE)
+                    Toast.makeText(requireContext(), "Uploading Failed !!", Toast.LENGTH_SHORT)
+                        .show()
+                }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
     }
 
 }

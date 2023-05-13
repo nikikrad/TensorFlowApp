@@ -18,15 +18,24 @@ import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.content.PermissionChecker
 import androidx.core.content.PermissionChecker.checkSelfPermission
 import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
 import com.example.tensorflowapp.MainActivity
+import com.example.tensorflowapp.R
 import com.example.tensorflowapp.databinding.FragmentFlowerClassificationBinding
 import com.example.tensorflowapp.ml.Model
+import com.example.tensorflowapp.presentation.main.`object`.model.ModelFirebase
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.ktx.database
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageReference
 import com.google.mlkit.common.model.LocalModel
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.label.ImageLabel
@@ -47,6 +56,11 @@ class FlowerClassificationFragment : Fragment() {
     private lateinit var binding: FragmentFlowerClassificationBinding
     private lateinit var photoFile: File
     private lateinit var imageLabeler: ImageLabeler
+    private val root = Firebase.database.reference
+    private val reference = FirebaseStorage.getInstance().reference.child("Images")
+    private var imageUri: Uri? = null
+    private var auth = FirebaseAuth.getInstance()
+    private var description: String = ""
 
     private val REQUEST_PICK_IMAGE = 1000
     private val REQUEST_CAPTURE_IMAGE = 1001
@@ -90,6 +104,11 @@ class FlowerClassificationFragment : Fragment() {
                 )
             }
             onStartCamera()
+            binding.btnImages.setOnClickListener {
+                val bundle = Bundle()
+                bundle.putInt("TYPE", 4)
+                findNavController().navigate(R.id.imagesFragment, bundle)
+            }
 //            if (checkSelfPermission(requireContext(), Manifest.permission.CAMERA) === PermissionChecker.PERMISSION_GRANTED) {
 //                val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
 //                startActivityForResult(cameraIntent, 3)
@@ -181,8 +200,10 @@ class FlowerClassificationFragment : Fragment() {
             }
             if (imageLabels.isEmpty()) {
                 binding.tvOutput.text = "Could not identify!!"
+                description = "Could not identify!!"
             } else {
                 binding.tvOutput.text = sb.toString()
+                description = sb.toString()
             }
         }.addOnFailureListener { e: Exception -> e.printStackTrace() }
     }
@@ -242,18 +263,66 @@ class FlowerClassificationFragment : Fragment() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (resultCode == Activity.RESULT_OK) {
+            val uri = data?.data
             if (requestCode == REQUEST_PICK_IMAGE) {
-                val uri = data?.data
-                val bitmap = loadFromUri(uri!!)
+                uploadToFirebase(uri!!)
+                val bitmap = loadFromUri(uri)
                 binding.ivImage.setImageBitmap(bitmap)
                 if (bitmap != null) {
                     runDetection(bitmap)
                 }
             } else if (requestCode == REQUEST_CAPTURE_IMAGE) {
+                uploadToFirebase(uri!!)
                 val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
                 binding.ivImage.setImageBitmap(bitmap)
                 runDetection(bitmap)
             }
+        }
+
+    }
+    private fun uploadToFirebase(uri: Uri) {
+        val fileRef: StorageReference =
+            reference.child(System.currentTimeMillis().toString())
+        try {
+            fileRef.putFile(uri)
+                .addOnSuccessListener {
+
+                    fileRef.downloadUrl
+                        .addOnSuccessListener { url ->
+
+
+                            val model = imageUri
+                            val modelId: String? = root.push().key
+                            if (modelId != null) {
+                                root.child(auth.currentUser?.email.toString().substringBefore("@"))
+                                    .child("images")
+                                    .child(modelId)
+                                    .setValue(
+                                        ModelFirebase(
+                                            url = url.toString(),
+                                            text = description,
+                                            type = "2"
+                                        )
+                                    )
+                            }
+                            binding.progressBar.visibility = View.INVISIBLE
+                            Toast.makeText(
+                                requireContext(),
+                                "Uploaded Successfully",
+                                Toast.LENGTH_SHORT
+                            ).show()
+
+                        }
+
+                }.addOnProgressListener {
+                    binding.progressBar.setVisibility(View.VISIBLE)
+                }.addOnFailureListener {
+                    binding.progressBar.setVisibility(View.INVISIBLE)
+                    Toast.makeText(requireContext(), "Uploading Failed !!", Toast.LENGTH_SHORT)
+                        .show()
+                }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
 
     }

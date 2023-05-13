@@ -9,11 +9,13 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import com.example.tensorflowapp.R
 import com.example.tensorflowapp.presentation.main.images.ImageWithText
+import com.example.tensorflowapp.presentation.main.`object`.model.ModelFirebase
 
 class ImagesAdapter(
-    private val animeList: List<ImageWithText>
+    private val animeList: List<ModelFirebase>
 ) : RecyclerView.Adapter<ImagesAdapter.MainViewHolder>() {
 
     override fun onCreateViewHolder(
@@ -39,8 +41,10 @@ class ImagesAdapter(
         private val image: ImageView = itemView.findViewById(R.id.iv_Image)
         private val text: TextView = itemView.findViewById(R.id.tv_Text)
         val constraint: ConstraintLayout = itemView.findViewById(R.id.constraint)
-        fun bind(item: ImageWithText) {
-            image.setImageBitmap(item.image)
+        fun bind(item: ModelFirebase) {
+            Glide.with(itemView.context)
+                .load(item.url)
+                .into(image)
             text.text = item.text
         }
     }
