@@ -20,16 +20,15 @@ import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
-import androidx.core.net.toUri
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.tensorflowapp.MainActivity
 import com.example.tensorflowapp.R
-import com.example.tensorflowapp.data.database.TensorDatabase
-import com.example.tensorflowapp.data.database.TensorEntity
-import com.example.tensorflowapp.data.response.ImageResponse
 import com.example.tensorflowapp.databinding.FragmentObjectDetectionBinding
+import com.example.tensorflowapp.presentation.main.images.ImageWithText
+import com.example.tensorflowapp.presentation.main.images.adapter.ImagesAdapter
+import com.example.tensorflowapp.presentation.main.`object`.adapter.ClassificationAdapter
 import com.example.tensorflowapp.presentation.main.`object`.model.ModelFirebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.ktx.database
@@ -43,9 +42,6 @@ import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
 import com.google.mlkit.vision.objects.ObjectDetection
 import com.google.mlkit.vision.objects.ObjectDetector
 import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -62,8 +58,12 @@ class ObjectDetectionFragment : Fragment() {
     private var imageUri: Uri? = null
     private var auth = FirebaseAuth.getInstance()
     private var description: String = ""
+    private val selectedImages: MutableList<Bitmap> = mutableListOf()
+    private val bitmapList: MutableList<ImageWithText> = mutableListOf()
+    private var adapter = ClassificationAdapter(bitmapList)
 
     private val REQUEST_PICK_IMAGE = 1000
+    private val PICK_IMAGES_REQUEST_CODE = 100
     private val REQUEST_CAPTURE_IMAGE = 1001
 
     override fun onCreateView(
@@ -115,7 +115,12 @@ class ObjectDetectionFragment : Fragment() {
             findNavController().navigate(R.id.imagesFragment, bundle)
         }
 
+        binding.btnGroupImages.setOnClickListener {
+            onPickGroupImages()
+        }
+
     }
+
 
     private fun runDetection(bitmap: Bitmap?) {
         val inputImage = InputImage.fromBitmap(bitmap!!, 0)
@@ -161,51 +166,61 @@ class ObjectDetectionFragment : Fragment() {
 
     }
 
-    private suspend fun addImageToRealtimeDatabase(bitmap: Bitmap, text: String) {
-        val stream = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)
-        var database = Firebase.database.reference
-        lifecycleScope.launch(Dispatchers.IO) {
-            database.child(auth.currentUser?.email.toString().substringBefore("@")).get()
-                .addOnSuccessListener {
-
-                    if (it.children.toList() !== null) {
-                        database.child(auth.currentUser?.email.toString().substringBefore("@"))
-                            .child("2")
-                            .child("0")
-                            .setValue(
-                                ImageResponse(
-                                    text = text,
-                                    byteImage = bitmap.toString(),
-                                    type = 2
-                                )
-                            )
-                    } else {
-                        database.child(auth.currentUser?.email.toString().substringBefore("@"))
-                            .child("${it.children.toList().last().value.toString().toInt() + 1}")
-                            .setValue(
-                                ImageResponse(
-                                    text = text,
-                                    byteImage = bitmap.toString(),
-                                    type = 2
-                                )
-                            )
-                    }
-                }
-        }
-    }
-
-    private suspend fun addImageToDatabase(bitmap: Bitmap, text: String) {
-        val stream = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)
-        val dao = TensorDatabase.getDatabase(requireContext()).TensorDao()
-        dao.addImage(TensorEntity(text = text, byteImage = stream.toByteArray(), type = 2))
-    }
+//    private suspend fun addImageToRealtimeDatabase(bitmap: Bitmap, text: String) {
+//        val stream = ByteArrayOutputStream()
+//        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)
+//        var database = Firebase.database.reference
+//        lifecycleScope.launch(Dispatchers.IO) {
+//            database.child(auth.currentUser?.email.toString().substringBefore("@")).get()
+//                .addOnSuccessListener {
+//
+//                    if (it.children.toList() !== null) {
+//                        database.child(auth.currentUser?.email.toString().substringBefore("@"))
+//                            .child("2")
+//                            .child("0")
+//                            .setValue(
+//                                ImageResponse(
+//                                    text = text,
+//                                    byteImage = bitmap.toString(),
+//                                    type = 2
+//                                )
+//                            )
+//                    } else {
+//                        database.child(auth.currentUser?.email.toString().substringBefore("@"))
+//                            .child("${it.children.toList().last().value.toString().toInt() + 1}")
+//                            .setValue(
+//                                ImageResponse(
+//                                    text = text,
+//                                    byteImage = bitmap.toString(),
+//                                    type = 2
+//                                )
+//                            )
+//                    }
+//                }
+//        }
+//    }
+//
+//    private suspend fun addImageToDatabase(bitmap: Bitmap, text: String) {
+//        val stream = ByteArrayOutputStream()
+//        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)
+//        val dao = TensorDatabase.getDatabase(requireContext()).TensorDao()
+//        dao.addImage(TensorEntity(text = text, byteImage = stream.toByteArray(), type = 2))
+//    }
 
     private fun onPickImage() {
         val intent = Intent(Intent.ACTION_GET_CONTENT)
         intent.type = "image/*"
         startActivityForResult(intent, REQUEST_PICK_IMAGE)
+    }
+
+    private fun onPickGroupImages() {
+        val intent = Intent(Intent.ACTION_GET_CONTENT)
+        intent.type = "image/*"
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        startActivityForResult(
+            Intent.createChooser(intent, "Select Pictures"),
+            PICK_IMAGES_REQUEST_CODE
+        )
     }
 
 
@@ -254,24 +269,107 @@ class ObjectDetectionFragment : Fragment() {
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (resultCode == Activity.RESULT_OK) {
-            if (requestCode == REQUEST_PICK_IMAGE) {
-                val uri = data?.data
-                imageUri = uri
-                uploadToFirebase(uri!!)
-                val bitmap = loadFromUri(uri!!)
-                binding.ivImage.setImageBitmap(bitmap)
-                if (bitmap != null) {
+        if (requestCode == PICK_IMAGES_REQUEST_CODE && resultCode == Activity.RESULT_OK && data != null) {
+            val clipData = data.clipData
+
+            if (clipData != null) {
+                for (i in 0 until clipData.itemCount) {
+                    val uri = clipData.getItemAt(i).uri
+                    val inputStream =
+                        (activity as MainActivity).contentResolver.openInputStream(uri)
+                    val bitmap = BitmapFactory.decodeStream(inputStream)
+                    selectedImages.add(bitmap)
+                }
+                runGroupDetection(selectedImages)
+            } else {
+                val uri = data.data
+                val inputStream = (activity as MainActivity).contentResolver.openInputStream(uri!!)
+                val bitmap = BitmapFactory.decodeStream(inputStream)
+                selectedImages.add(bitmap)
+            }
+
+        } else {
+            if (resultCode == Activity.RESULT_OK) {
+                if (requestCode == REQUEST_PICK_IMAGE) {
+                    val uri = data?.data
+                    imageUri = uri
+                    uploadToFirebase(uri!!)
+                    val bitmap = loadFromUri(uri!!)
+                    binding.ivImage.setImageBitmap(bitmap)
+                    if (bitmap != null) {
+                        runDetection(bitmap)
+                    }
+                } else if (requestCode == REQUEST_CAPTURE_IMAGE) {
+                    uploadToFirebase(imageUri!!)
+                    val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
+                    binding.ivImage.setImageBitmap(bitmap)
                     runDetection(bitmap)
                 }
-            } else if (requestCode == REQUEST_CAPTURE_IMAGE) {
-                uploadToFirebase(imageUri!!)
-                val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
-                binding.ivImage.setImageBitmap(bitmap)
-                runDetection(bitmap)
             }
         }
+    }
 
+    private fun runGroupDetection(bitmap: MutableList<Bitmap>) {
+        bitmap.forEach { mBitmap ->
+            val inputImage = InputImage.fromBitmap(mBitmap!!, 0)
+            objectDetector.process(inputImage)
+                .addOnSuccessListener { detectorObjects ->
+                    if (!detectorObjects.isEmpty()) {
+                        val builder = StringBuilder()
+                        val boxes = mutableListOf<BoxWithText>()
+                        detectorObjects.forEach {
+                            if (!it.labels.isEmpty()) {
+                                val label = it.labels[0].text
+                                builder.append(label)
+                                    .append(": ")
+                                    .append(it.labels[0].confidence)
+                                    .append("\n")
+                                boxes.add(BoxWithText(label, it.boundingBox))
+                            } else {
+                                binding.tvOutput.text = "Unknown"
+                                bitmapList.add(
+                                    ImageWithText(
+                                        image = mBitmap,
+                                        text = builder.toString()
+                                    )
+                                )
+                                adapter.notifyDataSetChanged()
+                            }
+                        }
+                        binding.tvOutput.text = builder.toString()
+                        description = builder.toString()
+                        if (binding.checkBox.isChecked) {
+                            bitmapList.add(
+                                ImageWithText(
+                                    image = drawDetectionResult(mBitmap, boxes)!!,
+                                    text = builder.toString()
+                                )
+                            )
+                            adapter.notifyDataSetChanged()
+                        }
+                    } else {
+                        bitmapList.add(
+                            ImageWithText(
+                                image = mBitmap,
+                                text = "Could not detect"
+                            )
+                        )
+                        adapter.notifyDataSetChanged()
+                    }
+                }.addOnFailureListener {
+                    it.printStackTrace()
+                }
+        }
+        binding.rvImages.visibility = View.VISIBLE
+        binding.ivImage.visibility = View.INVISIBLE
+        binding.tvOutput.visibility = View.INVISIBLE
+        binding.rvImages.layoutManager =
+            LinearLayoutManager(
+                activity?.applicationContext,
+                LinearLayoutManager.VERTICAL,
+                false
+            )
+        binding.rvImages.adapter = adapter
     }
 
     private fun drawDetectionResult(
