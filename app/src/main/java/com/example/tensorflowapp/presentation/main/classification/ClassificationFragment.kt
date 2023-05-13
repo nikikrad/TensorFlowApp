@@ -27,6 +27,10 @@ import com.example.tensorflowapp.R
 import com.example.tensorflowapp.databinding.FragmentClassificationBinding
 import com.example.tensorflowapp.databinding.FragmentMainBinding
 import com.example.tensorflowapp.presentation.main.`object`.model.ModelFirebase
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.ktx.database
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageReference
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.label.ImageLabeler
@@ -41,6 +45,11 @@ class ClassificationFragment : Fragment() {
     private lateinit var binding: FragmentClassificationBinding
     private lateinit var imageLabeler: ImageLabeler
     private lateinit var photoFile: File
+    private val root = Firebase.database.reference
+    private val reference = FirebaseStorage.getInstance().reference.child("Images")
+    private var imageUri: Uri? = null
+    private var auth = FirebaseAuth.getInstance()
+    private var description: String = ""
 
     private val REQUEST_PICK_IMAGE = 1000
     private val REQUEST_CAPTURE_IMAGE = 1001
@@ -96,7 +105,7 @@ class ClassificationFragment : Fragment() {
         photoFile = createPhotoFile()
         val fileUri =
             context?.let { FileProvider.getUriForFile(it, "com.iago.fileprovider", photoFile) }
-
+        imageUri = fileUri
         val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
         intent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri)
 
@@ -130,8 +139,10 @@ class ClassificationFragment : Fragment() {
                         .append("\n")
                 }
                 binding.tvOutput.text = builder.toString()
+                description = builder.toString()
             } else {
                 binding.tvOutput.text = "Could not classify"
+                description = "Could not classify"
             }
         }.addOnFailureListener {
             it.printStackTrace()
@@ -159,8 +170,9 @@ class ClassificationFragment : Fragment() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (resultCode == Activity.RESULT_OK) {
-            val uri = data?.data
             if (requestCode == REQUEST_PICK_IMAGE) {
+                val uri = data?.data
+                imageUri = uri
                 uploadToFirebase(uri!!)
                 val bitmap = loadFromUri(uri!!)
                 binding.ivImage.setImageBitmap(bitmap)
@@ -168,7 +180,7 @@ class ClassificationFragment : Fragment() {
                     runClassification(bitmap)
                 }
             } else if (requestCode == REQUEST_CAPTURE_IMAGE) {
-                uploadToFirebase(uri!!)
+                uploadToFirebase(imageUri!!)
                 val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
                 binding.ivImage.setImageBitmap(bitmap)
                 runClassification(bitmap)
@@ -187,8 +199,6 @@ class ClassificationFragment : Fragment() {
                     fileRef.downloadUrl
                         .addOnSuccessListener { url ->
 
-
-                            val model = imageUri
                             val modelId: String? = root.push().key
                             if (modelId != null) {
                                 root.child(auth.currentUser?.email.toString().substringBefore("@"))
@@ -198,7 +208,7 @@ class ClassificationFragment : Fragment() {
                                         ModelFirebase(
                                             url = url.toString(),
                                             text = description,
-                                            type = "2"
+                                            type = "1"
                                         )
                                     )
                             }

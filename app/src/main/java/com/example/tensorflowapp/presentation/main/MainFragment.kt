@@ -22,9 +22,11 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.navigation.fragment.findNavController
+import com.example.tensorflowapp.AuthActivity
 import com.example.tensorflowapp.MainActivity
 import com.example.tensorflowapp.R
 import com.example.tensorflowapp.databinding.FragmentMainBinding
+import com.google.firebase.auth.FirebaseAuth
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.label.ImageLabeler
 import com.google.mlkit.vision.label.ImageLabeling
@@ -36,6 +38,7 @@ import java.util.*
 class MainFragment : Fragment() {
 
     private lateinit var binding: FragmentMainBinding
+    private lateinit var auth: FirebaseAuth
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -60,7 +63,13 @@ class MainFragment : Fragment() {
         binding.btnFlower.setOnClickListener{
             findNavController().navigate(R.id.flowerClassificationFragment)
         }
+        auth = FirebaseAuth.getInstance()
+
+        binding.btnExit.setOnClickListener {
+            auth.signOut()
+            var intent = Intent(context, AuthActivity::class.java)
+            (activity as MainActivity).finish()
+            startActivity(intent)
+        }
     }
-
-
 }

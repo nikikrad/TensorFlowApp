@@ -117,8 +117,10 @@ class FaceDetectionFragment : Fragment() {
             .addOnSuccessListener { faces: List<Face> ->
                 if (faces.isEmpty()) {
                     binding.tvOutput.text = "No faces detected"
+                    description = "No faces detected"
                 } else {
                     binding.tvOutput.text = String.format("%d faces detected", faces.size)
+                    description = String.format("%d faces detected", faces.size)
                     val boxes: MutableList<BoxWithText?> = ArrayList()
                     for (face in faces) {
                         boxes.add(BoxWithText(face.trackingId.toString() + "", face.boundingBox))
@@ -140,7 +142,7 @@ class FaceDetectionFragment : Fragment() {
         photoFile = createPhotoFile()
         val fileUri =
             context?.let { FileProvider.getUriForFile(it, "com.iago.fileprovider", photoFile) }
-
+        imageUri = fileUri
         val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
         intent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri)
 
@@ -183,8 +185,9 @@ class FaceDetectionFragment : Fragment() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (resultCode == Activity.RESULT_OK) {
-            val uri = data?.data
             if (requestCode == REQUEST_PICK_IMAGE) {
+                val uri = data?.data
+                imageUri = uri
                 uploadToFirebase(uri!!)
                 val bitmap = loadFromUri(uri!!)
                 binding.ivImage.setImageBitmap(bitmap)
@@ -192,7 +195,7 @@ class FaceDetectionFragment : Fragment() {
                     runDetection(bitmap)
                 }
             } else if (requestCode == REQUEST_CAPTURE_IMAGE) {
-                uploadToFirebase(uri!!)
+                uploadToFirebase(imageUri!!)
                 val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
                 binding.ivImage.setImageBitmap(bitmap)
                 runDetection(bitmap)
@@ -249,8 +252,6 @@ class FaceDetectionFragment : Fragment() {
                     fileRef.downloadUrl
                         .addOnSuccessListener { url ->
 
-
-                            val model = imageUri
                             val modelId: String? = root.push().key
                             if (modelId != null) {
                                 root.child(auth.currentUser?.email.toString().substringBefore("@"))
@@ -260,7 +261,7 @@ class FaceDetectionFragment : Fragment() {
                                         ModelFirebase(
                                             url = url.toString(),
                                             text = description,
-                                            type = "2"
+                                            type = "3"
                                         )
                                     )
                             }

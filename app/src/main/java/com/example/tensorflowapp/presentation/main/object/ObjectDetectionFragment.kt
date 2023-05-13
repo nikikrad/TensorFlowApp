@@ -20,6 +20,7 @@ import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
@@ -140,16 +141,16 @@ class ObjectDetectionFragment : Fragment() {
                     description = builder.toString()
                     if (binding.checkBox.isChecked) {
                         binding.ivImage.setImageBitmap(drawDetectionResult(bitmap, boxes))
-                        lifecycleScope.launch(Dispatchers.IO) {
-                            addImageToDatabase(
-                                drawDetectionResult(bitmap, boxes)!!,
-                                builder.toString()
-                            )
-                        }
+//                        lifecycleScope.launch(Dispatchers.IO) {
+//                            addImageToDatabase(
+//                                drawDetectionResult(bitmap, boxes)!!,
+//                                builder.toString()
+//                            )
+//                        }
                     } else {
-                        lifecycleScope.launch(Dispatchers.IO) {
-                            addImageToDatabase(bitmap, builder.toString())
-                        }
+//                        lifecycleScope.launch(Dispatchers.IO) {
+//                            addImageToDatabase(bitmap, builder.toString())
+//                        }
                     }
                 } else {
                     binding.tvOutput.text = "Could not detect"
@@ -204,7 +205,6 @@ class ObjectDetectionFragment : Fragment() {
     private fun onPickImage() {
         val intent = Intent(Intent.ACTION_GET_CONTENT)
         intent.type = "image/*"
-
         startActivityForResult(intent, REQUEST_PICK_IMAGE)
     }
 
@@ -216,7 +216,6 @@ class ObjectDetectionFragment : Fragment() {
         imageUri = fileUri
         val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
         intent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri)
-
         startActivityForResult(intent, REQUEST_CAPTURE_IMAGE)
     }
 
@@ -259,13 +258,14 @@ class ObjectDetectionFragment : Fragment() {
             if (requestCode == REQUEST_PICK_IMAGE) {
                 val uri = data?.data
                 imageUri = uri
+                uploadToFirebase(uri!!)
                 val bitmap = loadFromUri(uri!!)
                 binding.ivImage.setImageBitmap(bitmap)
                 if (bitmap != null) {
                     runDetection(bitmap)
                 }
-                uploadToFirebase(uri)
             } else if (requestCode == REQUEST_CAPTURE_IMAGE) {
+                uploadToFirebase(imageUri!!)
                 val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
                 binding.ivImage.setImageBitmap(bitmap)
                 runDetection(bitmap)
@@ -325,9 +325,6 @@ class ObjectDetectionFragment : Fragment() {
 
                     fileRef.downloadUrl
                         .addOnSuccessListener { url ->
-
-
-                            val model = imageUri
                             val modelId: String? = root.push().key
                             if (modelId != null) {
                                 root.child(auth.currentUser?.email.toString().substringBefore("@"))
