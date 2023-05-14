@@ -20,11 +20,13 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.tensorflowapp.MainActivity
 import com.example.tensorflowapp.R
 import com.example.tensorflowapp.databinding.FragmentFaceDetectionBinding
-import com.example.tensorflowapp.databinding.FragmentObjectDetectionBinding
+import com.example.tensorflowapp.presentation.main.images.ImageWithText
 import com.example.tensorflowapp.presentation.main.`object`.BoxWithText
+import com.example.tensorflowapp.presentation.main.`object`.adapter.ClassificationAdapter
 import com.example.tensorflowapp.presentation.main.`object`.model.ModelFirebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.ktx.database
@@ -55,8 +57,12 @@ class FaceDetectionFragment : Fragment() {
     private var imageUri: Uri? = null
     private var auth = FirebaseAuth.getInstance()
     private var description: String = ""
+    private val selectedImages: MutableList<Bitmap> = mutableListOf()
+    private val bitmapList: MutableList<ImageWithText> = mutableListOf()
+    private var adapter = ClassificationAdapter(bitmapList)
 
     private val REQUEST_PICK_IMAGE = 1000
+    private val PICK_IMAGES_REQUEST_CODE = 100
     private val REQUEST_CAPTURE_IMAGE = 1001
 
     override fun onCreateView(
@@ -86,6 +92,11 @@ class FaceDetectionFragment : Fragment() {
 
 
         binding.btnGalleryImage.setOnClickListener {
+            binding.apply {
+                ivImage.visibility = View.VISIBLE
+                tvOutput.visibility = View.VISIBLE
+                rvImages.visibility = View.INVISIBLE
+            }
             onPickImage()
         }
         binding.btnCameraImage.setOnClickListener {
@@ -98,6 +109,11 @@ class FaceDetectionFragment : Fragment() {
                     PackageManager.PERMISSION_DENIED
                 )
             }
+            binding.apply {
+                ivImage.visibility = View.VISIBLE
+                tvOutput.visibility = View.VISIBLE
+                rvImages.visibility = View.INVISIBLE
+            }
             onStartCamera()
 
         }
@@ -106,7 +122,31 @@ class FaceDetectionFragment : Fragment() {
             bundle.putInt("TYPE", 3)
             findNavController().navigate(R.id.imagesFragment, bundle)
         }
+        binding.btnGroupImages.setOnClickListener {
+            binding.apply {
+                ivImage.visibility = View.INVISIBLE
+                tvOutput.visibility = View.INVISIBLE
+                rvImages.visibility = View.VISIBLE
+                rvImages.layoutManager =
+                    LinearLayoutManager(
+                        activity?.applicationContext,
+                        LinearLayoutManager.VERTICAL,
+                        false
+                    )
+                rvImages.adapter = adapter
+            }
+            onPickGroupImages()
+        }
+    }
 
+    private fun onPickGroupImages() {
+        val intent = Intent(Intent.ACTION_GET_CONTENT)
+        intent.type = "image/*"
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        startActivityForResult(
+            Intent.createChooser(intent, "Select Pictures"),
+            PICK_IMAGES_REQUEST_CODE
+        )
     }
 
     private fun runDetection(bitmap: Bitmap) {
@@ -184,24 +224,47 @@ class FaceDetectionFragment : Fragment() {
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (resultCode == Activity.RESULT_OK) {
-            if (requestCode == REQUEST_PICK_IMAGE) {
-                val uri = data?.data
-                imageUri = uri
-                uploadToFirebase(uri!!)
-                val bitmap = loadFromUri(uri!!)
-                binding.ivImage.setImageBitmap(bitmap)
-                if (bitmap != null) {
+        if (requestCode == PICK_IMAGES_REQUEST_CODE && resultCode == Activity.RESULT_OK && data != null) {
+            val clipData = data.clipData
+            selectedImages.clear()
+            if (clipData != null) {
+                for (i in 0 until clipData.itemCount) {
+                    val uri = clipData.getItemAt(i).uri
+                    val inputStream =
+                        (activity as MainActivity).contentResolver.openInputStream(uri)
+                    val bitmap = BitmapFactory.decodeStream(inputStream)
+                    selectedImages.add(bitmap)
+                }
+                runGroupDetection(selectedImages)
+            } else {
+                val uri = data.data
+                val inputStream = (activity as MainActivity).contentResolver.openInputStream(uri!!)
+                val bitmap = BitmapFactory.decodeStream(inputStream)
+                selectedImages.add(bitmap)
+                selectedImages.forEach {
+                    bitmapList.add(ImageWithText(it, ""))
+                }
+            }
+
+        } else {
+            if (resultCode == Activity.RESULT_OK) {
+                if (requestCode == REQUEST_PICK_IMAGE) {
+                    val uri = data?.data
+                    imageUri = uri
+                    uploadToFirebase(uri!!)
+                    val bitmap = loadFromUri(uri!!)
+                    binding.ivImage.setImageBitmap(bitmap)
+                    if (bitmap != null) {
+                        runDetection(bitmap)
+                    }
+                } else if (requestCode == REQUEST_CAPTURE_IMAGE) {
+                    uploadToFirebase(imageUri!!)
+                    val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
+                    binding.ivImage.setImageBitmap(bitmap)
                     runDetection(bitmap)
                 }
-            } else if (requestCode == REQUEST_CAPTURE_IMAGE) {
-                uploadToFirebase(imageUri!!)
-                val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
-                binding.ivImage.setImageBitmap(bitmap)
-                runDetection(bitmap)
             }
         }
-
     }
 
     private fun drawDetectionResult(
@@ -285,6 +348,38 @@ class FaceDetectionFragment : Fragment() {
             e.printStackTrace()
         }
 
+    }
+
+    private fun runGroupDetection(bitmap: MutableList<Bitmap>) {
+        var kostil = 0
+        bitmapList.clear()
+        bitmap.forEach {mBitmap ->
+            val finalBitmap = mBitmap.copy(Bitmap.Config.ARGB_8888, true)
+            val image = InputImage.fromBitmap(finalBitmap, 0)
+            faceDetector.process(image)
+                .addOnFailureListener { error: Exception -> error.printStackTrace() }
+                .addOnSuccessListener { faces: List<Face> ->
+                    if (faces.isEmpty()) {
+                        binding.tvOutput.text = "No faces detected"
+                        description = "No faces detected"
+                        bitmapList.add(ImageWithText(selectedImages[kostil], "No faces detected"))
+                        adapter.notifyDataSetChanged()
+                        kostil++
+                    } else {
+                        binding.tvOutput.text = String.format("%d faces detected", faces.size)
+                        description = String.format("%d faces detected", faces.size)
+                        val boxes: MutableList<BoxWithText?> = ArrayList()
+                        for (face in faces) {
+                            boxes.add(BoxWithText(face.trackingId.toString() + "", face.boundingBox))
+                        }
+                        binding.ivImage.setImageBitmap(drawDetectionResult(finalBitmap, boxes))
+                        bitmapList.add(ImageWithText((drawDetectionResult(selectedImages[kostil].copy(Bitmap.Config.ARGB_8888, true), boxes))!!, String.format("%d faces detected", faces.size)))
+                        adapter.notifyDataSetChanged()
+                        kostil++
+                    }
+                }
+        }
+        kostil = 0
     }
 
 }

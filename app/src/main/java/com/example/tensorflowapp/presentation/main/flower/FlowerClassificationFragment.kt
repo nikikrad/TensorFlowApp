@@ -3,13 +3,11 @@ package com.example.tensorflowapp.presentation.main.flower
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.app.Activity.RESULT_OK
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
-import android.media.ThumbnailUtils
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -22,14 +20,14 @@ import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
-import androidx.core.content.PermissionChecker
-import androidx.core.content.PermissionChecker.checkSelfPermission
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.tensorflowapp.MainActivity
 import com.example.tensorflowapp.R
 import com.example.tensorflowapp.databinding.FragmentFlowerClassificationBinding
-import com.example.tensorflowapp.ml.Model
+import com.example.tensorflowapp.presentation.main.images.ImageWithText
+import com.example.tensorflowapp.presentation.main.`object`.adapter.ClassificationAdapter
 import com.example.tensorflowapp.presentation.main.`object`.model.ModelFirebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.ktx.database
@@ -42,11 +40,7 @@ import com.google.mlkit.vision.label.ImageLabel
 import com.google.mlkit.vision.label.ImageLabeler
 import com.google.mlkit.vision.label.ImageLabeling
 import com.google.mlkit.vision.label.custom.CustomImageLabelerOptions
-import org.tensorflow.lite.DataType
-import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
 import java.io.File
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -61,8 +55,12 @@ class FlowerClassificationFragment : Fragment() {
     private var imageUri: Uri? = null
     private var auth = FirebaseAuth.getInstance()
     private var description: String = ""
+    private val selectedImages: MutableList<Bitmap> = mutableListOf()
+    private val bitmapList: MutableList<ImageWithText> = mutableListOf()
+    private var adapter = ClassificationAdapter(bitmapList)
 
     private val REQUEST_PICK_IMAGE = 1000
+    private val PICK_IMAGES_REQUEST_CODE = 100
     private val REQUEST_CAPTURE_IMAGE = 1001
     var imageSize = 32
 
@@ -88,6 +86,11 @@ class FlowerClassificationFragment : Fragment() {
 //
 
         binding.btnGalleryImage.setOnClickListener {
+            binding.apply {
+                ivImage.visibility = View.VISIBLE
+                tvOutput.visibility = View.VISIBLE
+                rvImages.visibility = View.INVISIBLE
+            }
             onPickImage()
 //            val cameraIntent =
 //                Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
@@ -103,12 +106,13 @@ class FlowerClassificationFragment : Fragment() {
                     PackageManager.PERMISSION_DENIED
                 )
             }
-            onStartCamera()
-            binding.btnImages.setOnClickListener {
-                val bundle = Bundle()
-                bundle.putInt("TYPE", 4)
-                findNavController().navigate(R.id.imagesFragment, bundle)
+            binding.apply {
+                ivImage.visibility = View.VISIBLE
+                tvOutput.visibility = View.VISIBLE
+                rvImages.visibility = View.INVISIBLE
             }
+            onStartCamera()
+
 //            if (checkSelfPermission(requireContext(), Manifest.permission.CAMERA) === PermissionChecker.PERMISSION_GRANTED) {
 //                val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
 //                startActivityForResult(cameraIntent, 3)
@@ -116,8 +120,38 @@ class FlowerClassificationFragment : Fragment() {
 //                requestPermissions(arrayOf<String>(Manifest.permission.CAMERA), 100)
 //            }
         }
-
+        binding.btnImages.setOnClickListener {
+            val bundle = Bundle()
+            bundle.putInt("TYPE", 4)
+            findNavController().navigate(R.id.imagesFragment, bundle)
+        }
+        binding.btnGroupImages.setOnClickListener {
+            binding.apply {
+                ivImage.visibility = View.INVISIBLE
+                tvOutput.visibility = View.INVISIBLE
+                rvImages.visibility = View.VISIBLE
+                rvImages.layoutManager =
+                    LinearLayoutManager(
+                        activity?.applicationContext,
+                        LinearLayoutManager.VERTICAL,
+                        false
+                    )
+                rvImages.adapter = adapter
+            }
+            onPickGroupImages()
+        }
     }
+
+    private fun onPickGroupImages() {
+        val intent = Intent(Intent.ACTION_GET_CONTENT)
+        intent.type = "image/*"
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        startActivityForResult(
+            Intent.createChooser(intent, "Select Pictures"),
+            PICK_IMAGES_REQUEST_CODE
+        )
+    }
+
 //
 //    fun classifyImage(image: Bitmap?) {
 //        try {
@@ -208,6 +242,33 @@ class FlowerClassificationFragment : Fragment() {
         }.addOnFailureListener { e: Exception -> e.printStackTrace() }
     }
 
+    private fun runGroupDetection(bitmap: MutableList<Bitmap>) {
+        var kostil = 0
+        bitmapList.clear()
+        bitmap.forEach {mBitmap ->
+            val inputImage = InputImage.fromBitmap(mBitmap, 0)
+            imageLabeler.process(inputImage).addOnSuccessListener { imageLabels: List<ImageLabel> ->
+                val sb = StringBuilder()
+                for (label in imageLabels) {
+                    sb.append(label.text).append(": ").append(label.confidence).append("\n")
+                }
+                if (imageLabels.isEmpty()) {
+                    binding.tvOutput.text = "Could not identify!!"
+                    description = "Could not identify!!"
+                    bitmapList.add(ImageWithText(selectedImages[kostil], "Could not identify!!"))
+                    adapter.notifyDataSetChanged()
+                    kostil++
+                } else {
+                    binding.tvOutput.text = sb.toString()
+                    description = sb.toString()
+                    bitmapList.add(ImageWithText(selectedImages[kostil], sb.toString()))
+                    adapter.notifyDataSetChanged()
+                    kostil++
+                }
+            }.addOnFailureListener { e: Exception -> e.printStackTrace() }
+        }
+        kostil = 0
+    }
 
     private fun onPickImage() {
         val intent = Intent(Intent.ACTION_GET_CONTENT)
@@ -262,25 +323,48 @@ class FlowerClassificationFragment : Fragment() {
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (resultCode == Activity.RESULT_OK) {
-            if (requestCode == REQUEST_PICK_IMAGE) {
-                val uri = data?.data
-                imageUri = uri
-                uploadToFirebase(uri!!)
-                val bitmap = loadFromUri(uri)
-                binding.ivImage.setImageBitmap(bitmap)
-                if (bitmap != null) {
+        if (requestCode == PICK_IMAGES_REQUEST_CODE && resultCode == Activity.RESULT_OK && data != null) {
+            val clipData = data.clipData
+            selectedImages.clear()
+            if (clipData != null) {
+                for (i in 0 until clipData.itemCount) {
+                    val uri = clipData.getItemAt(i).uri
+                    val inputStream =
+                        (activity as MainActivity).contentResolver.openInputStream(uri)
+                    val bitmap = BitmapFactory.decodeStream(inputStream)
+                    selectedImages.add(bitmap)
+                }
+                runGroupDetection(selectedImages)
+            } else {
+                val uri = data.data
+                val inputStream = (activity as MainActivity).contentResolver.openInputStream(uri!!)
+                val bitmap = BitmapFactory.decodeStream(inputStream)
+                selectedImages.add(bitmap)
+                selectedImages.forEach {
+                    bitmapList.add(ImageWithText(it, ""))
+                }
+            }
+        } else {
+            if (resultCode == Activity.RESULT_OK) {
+                if (requestCode == REQUEST_PICK_IMAGE) {
+                    val uri = data?.data
+                    imageUri = uri
+                    uploadToFirebase(uri!!)
+                    val bitmap = loadFromUri(uri)
+                    binding.ivImage.setImageBitmap(bitmap)
+                    if (bitmap != null) {
+                        runDetection(bitmap)
+                    }
+                } else if (requestCode == REQUEST_CAPTURE_IMAGE) {
+                    uploadToFirebase(imageUri!!)
+                    val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
+                    binding.ivImage.setImageBitmap(bitmap)
                     runDetection(bitmap)
                 }
-            } else if (requestCode == REQUEST_CAPTURE_IMAGE) {
-                uploadToFirebase(imageUri!!)
-                val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
-                binding.ivImage.setImageBitmap(bitmap)
-                runDetection(bitmap)
             }
         }
-
     }
+
     private fun uploadToFirebase(uri: Uri) {
         val fileRef: StorageReference =
             reference.child(System.currentTimeMillis().toString())

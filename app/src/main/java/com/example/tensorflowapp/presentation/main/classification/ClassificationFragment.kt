@@ -22,10 +22,12 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.tensorflowapp.MainActivity
 import com.example.tensorflowapp.R
 import com.example.tensorflowapp.databinding.FragmentClassificationBinding
-import com.example.tensorflowapp.databinding.FragmentMainBinding
+import com.example.tensorflowapp.presentation.main.images.ImageWithText
+import com.example.tensorflowapp.presentation.main.`object`.adapter.ClassificationAdapter
 import com.example.tensorflowapp.presentation.main.`object`.model.ModelFirebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.ktx.database
@@ -50,8 +52,12 @@ class ClassificationFragment : Fragment() {
     private var imageUri: Uri? = null
     private var auth = FirebaseAuth.getInstance()
     private var description: String = ""
+    private val selectedImages: MutableList<Bitmap> = mutableListOf()
+    private val bitmapList: MutableList<ImageWithText> = mutableListOf()
+    private var adapter = ClassificationAdapter(bitmapList)
 
     private val REQUEST_PICK_IMAGE = 1000
+    private val PICK_IMAGES_REQUEST_CODE = 100
     private val REQUEST_CAPTURE_IMAGE = 1001
 
     override fun onCreateView(
@@ -67,6 +73,11 @@ class ClassificationFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         binding.btnGalleryImage.setOnClickListener {
+            binding.apply {
+                ivImage.visibility = View.VISIBLE
+                tvOutput.visibility = View.VISIBLE
+                rvImages.visibility = View.INVISIBLE
+            }
             onPickImage()
         }
         binding.btnCameraImage.setOnClickListener {
@@ -78,6 +89,11 @@ class ClassificationFragment : Fragment() {
                     arrayOf(Manifest.permission.CAMERA),
                     PackageManager.PERMISSION_DENIED
                 )
+            }
+            binding.apply {
+                ivImage.visibility = View.VISIBLE
+                tvOutput.visibility = View.VISIBLE
+                rvImages.visibility = View.INVISIBLE
             }
             onStartCamera()
 
@@ -91,6 +107,31 @@ class ClassificationFragment : Fragment() {
             ImageLabelerOptions.Builder()
                 .setConfidenceThreshold(0.7f)
                 .build()
+        )
+        binding.btnGroupImages.setOnClickListener {
+            binding.apply {
+                ivImage.visibility = View.INVISIBLE
+                tvOutput.visibility = View.INVISIBLE
+                rvImages.visibility = View.VISIBLE
+                rvImages.layoutManager =
+                    LinearLayoutManager(
+                        activity?.applicationContext,
+                        LinearLayoutManager.VERTICAL,
+                        false
+                    )
+                rvImages.adapter = adapter
+            }
+            onPickGroupImages()
+        }
+    }
+
+    private fun onPickGroupImages() {
+        val intent = Intent(Intent.ACTION_GET_CONTENT)
+        intent.type = "image/*"
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        startActivityForResult(
+            Intent.createChooser(intent, "Select Pictures"),
+            PICK_IMAGES_REQUEST_CODE
         )
     }
 
@@ -169,24 +210,80 @@ class ClassificationFragment : Fragment() {
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (resultCode == Activity.RESULT_OK) {
-            if (requestCode == REQUEST_PICK_IMAGE) {
-                val uri = data?.data
-                imageUri = uri
-                uploadToFirebase(uri!!)
-                val bitmap = loadFromUri(uri!!)
-                binding.ivImage.setImageBitmap(bitmap)
-                if (bitmap != null) {
+        if (requestCode == PICK_IMAGES_REQUEST_CODE && resultCode == Activity.RESULT_OK && data != null) {
+            val clipData = data.clipData
+            selectedImages.clear()
+            if (clipData != null) {
+                for (i in 0 until clipData.itemCount) {
+                    val uri = clipData.getItemAt(i).uri
+                    val inputStream =
+                        (activity as MainActivity).contentResolver.openInputStream(uri)
+                    val bitmap = BitmapFactory.decodeStream(inputStream)
+                    selectedImages.add(bitmap)
+                }
+                runGroupClassification(selectedImages)
+            } else {
+                val uri = data.data
+                val inputStream = (activity as MainActivity).contentResolver.openInputStream(uri!!)
+                val bitmap = BitmapFactory.decodeStream(inputStream)
+                selectedImages.add(bitmap)
+                selectedImages.forEach {
+                    bitmapList.add(ImageWithText(it, ""))
+                }
+            }
+
+        } else {
+            if (resultCode == Activity.RESULT_OK) {
+                if (requestCode == REQUEST_PICK_IMAGE) {
+                    val uri = data?.data
+                    imageUri = uri
+                    uploadToFirebase(uri!!)
+                    val bitmap = loadFromUri(uri!!)
+                    binding.ivImage.setImageBitmap(bitmap)
+                    if (bitmap != null) {
+                        runClassification(bitmap)
+                    }
+                } else if (requestCode == REQUEST_CAPTURE_IMAGE) {
+                    uploadToFirebase(imageUri!!)
+                    val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
+                    binding.ivImage.setImageBitmap(bitmap)
                     runClassification(bitmap)
                 }
-            } else if (requestCode == REQUEST_CAPTURE_IMAGE) {
-                uploadToFirebase(imageUri!!)
-                val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
-                binding.ivImage.setImageBitmap(bitmap)
-                runClassification(bitmap)
             }
         }
+    }
 
+    private fun runGroupClassification(bitmap: MutableList<Bitmap>) {
+        var kostil = 0
+        bitmapList.clear()
+        bitmap.forEach {mBitmap ->
+            val inputImage = InputImage.fromBitmap(mBitmap, 0)
+            imageLabeler.process(inputImage).addOnSuccessListener {
+                if (it.size > 0) {
+                    val builder = StringBuilder()
+                    it.forEach {
+                        builder.append(it.text)
+                            .append(" : ")
+                            .append(it.confidence)
+                            .append("\n")
+                    }
+                    binding.tvOutput.text = builder.toString()
+                    description = builder.toString()
+                    bitmapList.add(ImageWithText(selectedImages[kostil], builder.toString()))
+                    adapter.notifyDataSetChanged()
+                    kostil++
+                } else {
+                    binding.tvOutput.text = "Could not classify"
+                    description = "Could not classify"
+                    bitmapList.add(ImageWithText(selectedImages[kostil], "Could not classify"))
+                    adapter.notifyDataSetChanged()
+                    kostil++
+                }
+            }.addOnFailureListener {
+                it.printStackTrace()
+            }
+        }
+        kostil = 0
     }
 
     private fun uploadToFirebase(uri: Uri) {

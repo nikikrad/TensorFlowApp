@@ -296,7 +296,7 @@ class ObjectDetectionFragment : Fragment() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (requestCode == PICK_IMAGES_REQUEST_CODE && resultCode == Activity.RESULT_OK && data != null) {
             val clipData = data.clipData
-
+            selectedImages.clear()
             if (clipData != null) {
                 for (i in 0 until clipData.itemCount) {
                     val uri = clipData.getItemAt(i).uri
@@ -305,10 +305,6 @@ class ObjectDetectionFragment : Fragment() {
                     val bitmap = BitmapFactory.decodeStream(inputStream)
                     selectedImages.add(bitmap)
                 }
-//                selectedImages.forEach {
-//                    bitmapList.add(ImageWithText(it, ""))
-//                }
-//                adapter.notifyDataSetChanged()
                 runGroupDetection(selectedImages)
             } else {
                 val uri = data.data
@@ -343,6 +339,7 @@ class ObjectDetectionFragment : Fragment() {
 
     private fun runGroupDetection(bitmap: MutableList<Bitmap>) {
         var kostil = 0
+        bitmapList.clear()
         bitmap.forEach { mBitmap ->
             val inputImage = InputImage.fromBitmap(mBitmap!!, 0)
             objectDetector.process(inputImage)
@@ -360,6 +357,7 @@ class ObjectDetectionFragment : Fragment() {
                                 boxes.add(BoxWithText(label, it.boundingBox))
                             } else {
                                 binding.tvOutput.text = "Unknown"
+
 //                                bitmapList.add(
 //                                    ImageWithText(
 //                                        image = mBitmap,
@@ -385,6 +383,9 @@ class ObjectDetectionFragment : Fragment() {
 //                            adapter.notifyDataSetChanged()
                         }
                     } else {
+                        bitmapList.add(ImageWithText(selectedImages[kostil], "Could not detect"))
+                        adapter.notifyDataSetChanged()
+                        kostil++
 //                        bitmapList.add(
 //                            ImageWithText(
 //                                image = mBitmap,

@@ -13,6 +13,7 @@ import com.bumptech.glide.Glide
 import com.example.tensorflowapp.R
 import com.example.tensorflowapp.presentation.main.images.ImageWithText
 import com.example.tensorflowapp.presentation.main.`object`.model.ModelFirebase
+import com.squareup.picasso.Picasso
 
 class ImagesAdapter(
     private val animeList: List<ModelFirebase>
@@ -42,8 +43,12 @@ class ImagesAdapter(
         private val text: TextView = itemView.findViewById(R.id.tv_Text)
         val constraint: ConstraintLayout = itemView.findViewById(R.id.constraint)
         fun bind(item: ModelFirebase) {
-            Glide.with(itemView.context)
+//            Glide.with(itemView.context)
+//                .load(item.url)
+//                .into(image)
+            Picasso.get()
                 .load(item.url)
+                .placeholder(R.drawable.ic_search)
                 .into(image)
             text.text = item.text
         }
