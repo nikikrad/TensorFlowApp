@@ -21,7 +21,6 @@ import kotlinx.coroutines.launch
 class LoginFragment: Fragment() {
 
     private lateinit var binding: FragmentLoginBinding
-
     private lateinit var auth: FirebaseAuth
     private lateinit var database: DatabaseReference
 
@@ -46,12 +45,12 @@ class LoginFragment: Fragment() {
             checkLoggedInState()
         }
         binding.btnLogIn.setOnClickListener {
-            logIn()
+            onLogin()
         }
 
     }
 
-    private fun logIn() {
+    private fun onLogin() {
         CoroutineScope(Dispatchers.Main).launch {
             if (binding.etLogin.text !== null && binding.etPassword.text?.length!! >= 6) {
 

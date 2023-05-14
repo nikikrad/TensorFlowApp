@@ -488,10 +488,4 @@ class ObjectDetectionFragment : Fragment() {
         }
 
     }
-
-    private fun getFileExtension(mUri: Uri): String? {
-        val cr: ContentResolver = (activity as MainActivity).contentResolver
-        val mime = MimeTypeMap.getSingleton()
-        return mime.getExtensionFromMimeType(cr.getType(mUri))
-    }
 }

@@ -16,7 +16,6 @@ class AuthActivity : AppCompatActivity() {
     private lateinit var binding: ActivityAuthBinding
     private lateinit var auth: FirebaseAuth
     private lateinit var navController: NavController
-    private var status = true
 
 
 
@@ -25,6 +24,7 @@ class AuthActivity : AppCompatActivity() {
         binding = ActivityAuthBinding.inflate(layoutInflater)
         setContentView(binding.root)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+         var status = true
 
         checkLogInState(applicationContext)
         val navHostFragment =
@@ -42,7 +42,7 @@ class AuthActivity : AppCompatActivity() {
         }
     }
 
-    fun checkLogInState(context: Context){
+    private fun checkLogInState(context: Context){
         auth = FirebaseAuth.getInstance()
         if (auth.currentUser !== null) {
             var intent = Intent(context, MainActivity::class.java)

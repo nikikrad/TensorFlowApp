@@ -59,8 +59,8 @@ class FaceDetectionFragment : Fragment() {
     private var description: String = ""
     private val selectedImages: MutableList<Bitmap> = mutableListOf()
     private val bitmapList: MutableList<ImageWithText> = mutableListOf()
+    private val viewModel: FaceDetectionViewModel = FaceDetectionViewModel()
     private var adapter = ClassificationAdapter(bitmapList)
-
     private val REQUEST_PICK_IMAGE = 1000
     private val PICK_IMAGES_REQUEST_CODE = 100
     private val REQUEST_CAPTURE_IMAGE = 1001
@@ -174,7 +174,6 @@ class FaceDetectionFragment : Fragment() {
     private fun onPickImage() {
         val intent = Intent(Intent.ACTION_GET_CONTENT)
         intent.type = "image/*"
-
         startActivityForResult(intent, REQUEST_PICK_IMAGE)
     }
 
@@ -185,7 +184,6 @@ class FaceDetectionFragment : Fragment() {
         imageUri = fileUri
         val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
         intent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri)
-
         startActivityForResult(intent, REQUEST_CAPTURE_IMAGE)
     }
 
@@ -194,11 +192,9 @@ class FaceDetectionFragment : Fragment() {
             (activity as MainActivity).getExternalFilesDir(Environment.DIRECTORY_PICTURES),
             "SIEGA"
         )
-
         if (!photoFileDir.exists()) {
             photoFileDir.mkdirs()
         }
-
         val name = SimpleDateFormat("yyyyMMdd_HHmmss").format(Date())
         val file = File(photoFileDir.path + File.separator + name)
         return file
@@ -267,10 +263,7 @@ class FaceDetectionFragment : Fragment() {
         }
     }
 
-    private fun drawDetectionResult(
-        bitmap: Bitmap,
-        detectionResults: List<BoxWithText?>
-    ): Bitmap? {
+    private fun drawDetectionResult(bitmap: Bitmap,detectionResults: List<BoxWithText?>): Bitmap? {
         val outputBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(outputBitmap)
         val pen = Paint()
@@ -311,10 +304,8 @@ class FaceDetectionFragment : Fragment() {
         try {
             fileRef.putFile(uri)
                 .addOnSuccessListener {
-
                     fileRef.downloadUrl
                         .addOnSuccessListener { url ->
-
                             val modelId: String? = root.push().key
                             if (modelId != null) {
                                 root.child(auth.currentUser?.email.toString().substringBefore("@"))

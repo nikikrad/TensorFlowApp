@@ -49,7 +49,7 @@ class FlowerClassificationFragment : Fragment() {
 
     private lateinit var binding: FragmentFlowerClassificationBinding
     private lateinit var photoFile: File
-    private lateinit var imageLabeler: ImageLabeler
+    private lateinit var flowerLabeler: ImageLabeler
     private val root = Firebase.database.reference
     private val reference = FirebaseStorage.getInstance().reference.child("Images")
     private var imageUri: Uri? = null
@@ -82,7 +82,7 @@ class FlowerClassificationFragment : Fragment() {
             .setConfidenceThreshold(0.7f)
             .setMaxResultCount(5)
             .build()
-        imageLabeler = ImageLabeling.getClient(options)
+        flowerLabeler = ImageLabeling.getClient(options)
 //
 
         binding.btnGalleryImage.setOnClickListener {
@@ -227,7 +227,7 @@ class FlowerClassificationFragment : Fragment() {
 
     private fun runDetection(bitmap: Bitmap) {
         val inputImage = InputImage.fromBitmap(bitmap, 0)
-        imageLabeler.process(inputImage).addOnSuccessListener { imageLabels: List<ImageLabel> ->
+        flowerLabeler.process(inputImage).addOnSuccessListener { imageLabels: List<ImageLabel> ->
             val sb = StringBuilder()
             for (label in imageLabels) {
                 sb.append(label.text).append(": ").append(label.confidence).append("\n")
@@ -247,7 +247,7 @@ class FlowerClassificationFragment : Fragment() {
         bitmapList.clear()
         bitmap.forEach {mBitmap ->
             val inputImage = InputImage.fromBitmap(mBitmap, 0)
-            imageLabeler.process(inputImage).addOnSuccessListener { imageLabels: List<ImageLabel> ->
+            flowerLabeler.process(inputImage).addOnSuccessListener { imageLabels: List<ImageLabel> ->
                 val sb = StringBuilder()
                 for (label in imageLabels) {
                     sb.append(label.text).append(": ").append(label.confidence).append("\n")
