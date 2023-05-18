@@ -32,22 +32,16 @@ class FaceDetectionViewModel: ViewModel() {
 //                        adapter.notifyDataSetChanged()
                         kostil++
                     } else {
-//                        binding.tvOutput.text = String.format("%d faces detected", faces.size)
                         description = String.format("%d faces detected", faces.size)
                         val boxes: MutableList<BoxWithText?> = ArrayList()
                         for (face in faces) {
                             boxes.add(BoxWithText(face.trackingId.toString() + "", face.boundingBox))
                         }
-//                        binding.ivImage.setImageBitmap(drawDetectionResult(finalBitmap, boxes))
-//                        bitmapList.add(
-//                            ImageWithText((drawDetectionResult(selectedImages[kostil].copy(
-//                                Bitmap.Config.ARGB_8888, true), boxes))!!, String.format("%d faces detected", faces.size))
-//                        )
-//                        adapter.notifyDataSetChanged()
                         kostil++
                     }
                 }
         }
+
         kostil = 0
     }
 }

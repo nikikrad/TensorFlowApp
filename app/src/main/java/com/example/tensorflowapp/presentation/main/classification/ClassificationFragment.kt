@@ -76,6 +76,7 @@ class ClassificationFragment : Fragment() {
             binding.apply {
                 ivImage.visibility = View.VISIBLE
                 tvOutput.visibility = View.VISIBLE
+                tvGroupOutput.visibility = View.INVISIBLE
                 rvImages.visibility = View.INVISIBLE
             }
             onPickImage()
@@ -93,6 +94,7 @@ class ClassificationFragment : Fragment() {
             binding.apply {
                 ivImage.visibility = View.VISIBLE
                 tvOutput.visibility = View.VISIBLE
+                tvGroupOutput.visibility = View.INVISIBLE
                 rvImages.visibility = View.INVISIBLE
             }
             onStartCamera()
@@ -112,6 +114,7 @@ class ClassificationFragment : Fragment() {
             binding.apply {
                 ivImage.visibility = View.INVISIBLE
                 tvOutput.visibility = View.INVISIBLE
+                tvGroupOutput.visibility = View.VISIBLE
                 rvImages.visibility = View.VISIBLE
                 rvImages.layoutManager =
                     LinearLayoutManager(
@@ -283,6 +286,7 @@ class ClassificationFragment : Fragment() {
                 it.printStackTrace()
             }
         }
+        binding.tvGroupOutput.text = "Count of group images ${bitmap.size}"
         kostil = 0
     }
 

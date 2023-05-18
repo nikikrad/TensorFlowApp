@@ -95,6 +95,7 @@ class FaceDetectionFragment : Fragment() {
             binding.apply {
                 ivImage.visibility = View.VISIBLE
                 tvOutput.visibility = View.VISIBLE
+                tvGroupOutput.visibility = View.INVISIBLE
                 rvImages.visibility = View.INVISIBLE
             }
             onPickImage()
@@ -112,6 +113,7 @@ class FaceDetectionFragment : Fragment() {
             binding.apply {
                 ivImage.visibility = View.VISIBLE
                 tvOutput.visibility = View.VISIBLE
+                tvGroupOutput.visibility = View.INVISIBLE
                 rvImages.visibility = View.INVISIBLE
             }
             onStartCamera()
@@ -126,6 +128,7 @@ class FaceDetectionFragment : Fragment() {
             binding.apply {
                 ivImage.visibility = View.INVISIBLE
                 tvOutput.visibility = View.INVISIBLE
+                tvGroupOutput.visibility = View.VISIBLE
                 rvImages.visibility = View.VISIBLE
                 rvImages.layoutManager =
                     LinearLayoutManager(
@@ -370,6 +373,7 @@ class FaceDetectionFragment : Fragment() {
                     }
                 }
         }
+        binding.tvGroupOutput.text = "Count of group images ${bitmap.size}"
         kostil = 0
     }
 

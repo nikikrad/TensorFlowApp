@@ -98,6 +98,7 @@ class ObjectDetectionFragment : Fragment() {
                 ivImage.visibility = View.VISIBLE
                 tvOutput.visibility = View.VISIBLE
                 rvImages.visibility = View.INVISIBLE
+                tvGroupOutput.visibility = View.INVISIBLE
             }
             onPickImage()
         }
@@ -114,6 +115,7 @@ class ObjectDetectionFragment : Fragment() {
             binding.apply {
                 ivImage.visibility = View.VISIBLE
                 tvOutput.visibility = View.VISIBLE
+                tvGroupOutput.visibility = View.INVISIBLE
                 rvImages.visibility = View.INVISIBLE
             }
             onStartCamera()
@@ -129,6 +131,7 @@ class ObjectDetectionFragment : Fragment() {
             binding.apply {
                 ivImage.visibility = View.INVISIBLE
                 tvOutput.visibility = View.INVISIBLE
+                tvGroupOutput.visibility = View.VISIBLE
                 rvImages.visibility = View.VISIBLE
                 rvImages.layoutManager =
                     LinearLayoutManager(
@@ -357,14 +360,6 @@ class ObjectDetectionFragment : Fragment() {
                                 boxes.add(BoxWithText(label, it.boundingBox))
                             } else {
                                 binding.tvOutput.text = "Unknown"
-
-//                                bitmapList.add(
-//                                    ImageWithText(
-//                                        image = mBitmap,
-//                                        text = builder.toString()
-//                                    )
-//                                )
-//                                adapter.notifyDataSetChanged()
                             }
                         }
                         binding.tvOutput.text = builder.toString()
@@ -373,33 +368,18 @@ class ObjectDetectionFragment : Fragment() {
                         kostil++
                         description = builder.toString()
                         if (binding.checkBox.isChecked) {
-//                            bitmapList.clear()
-//                            bitmapList.add(
-//                                ImageWithText(
-//                                    image = drawDetectionResult(mBitmap, boxes)!!,
-//                                    text = builder.toString()
-//                                )
-//                            )
-//                            adapter.notifyDataSetChanged()
                         }
                     } else {
                         bitmapList.add(ImageWithText(selectedImages[kostil], "Could not detect"))
                         adapter.notifyDataSetChanged()
                         kostil++
-//                        bitmapList.add(
-//                            ImageWithText(
-//                                image = mBitmap,
-//                                text = "Could not detect"
-//                            )
-//                        )
-//
                     }
                     adapter.notifyDataSetChanged()
                 }.addOnFailureListener {
                     it.printStackTrace()
                 }
         }
-
+        binding.tvGroupOutput.text = "Count of group images ${bitmap.size}"
         kostil = 0
     }
 
